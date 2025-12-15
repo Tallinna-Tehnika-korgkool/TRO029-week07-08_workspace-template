@@ -1,0 +1,29 @@
+name: Week 07-08 check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  structure-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check package exists
+        run: |
+          test -d ros2_ws/src/week07_08_my_package
+
+      - name: Check required files exist
+        run: |
+          test -f ros2_ws/src/week07_08_my_package/package.xml
+          test -f ros2_ws/src/week07_08_my_package/setup.py
+          test -f ros2_ws/src/week07_08_my_package/week07_08_my_package/my_node.py
+
+      - name: Check package.xml has no TODO in key fields
+        run: |
+          ! grep -n "TODO" ros2_ws/src/week07_08_my_package/package.xml | grep -E "description|maintainer|license"
+
+      - name: Check setup.py has no TODO in key fields
+        run: |
+          ! grep -n "TODO" ros2_ws/src/week07_08_my_package/setup.py | grep -E "maintainer|maintainer_email|description|license"
