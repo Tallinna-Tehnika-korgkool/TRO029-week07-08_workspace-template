@@ -1,29 +1,574 @@
-name: Week 07-08 check
+name: Week 07-08 ROS2 Workspace Check
 
 on:
   push:
+    branches:
+      - "**"
   pull_request:
+    branches:
+      - main
 
 jobs:
-  structure-check:
+  validate-ros2-workspace:
     runs-on: ubuntu-latest
+    container:
+      image: osrf/ros:humble-desktop
+    
     steps:
-      - uses: actions/checkout@v4
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
 
-      - name: Check package exists
+      - name: 🔧 Setup ROS2 Environment
         run: |
-          test -d ros2_ws/src/week07_08_my_package
+          echo "Setting up ROS2 Humble environment..."
+          . /opt/ros/humble/setup.bash
+          echo "ROS_DISTRO=$ROS_DISTRO"
+          echo "✅ ROS2 environment ready"
 
-      - name: Check required files exist
+      - name: 📂 Validate Workspace Structure
+        id: structure_check
         run: |
-          test -f ros2_ws/src/week07_08_my_package/package.xml
-          test -f ros2_ws/src/week07_08_my_package/setup.py
-          test -f ros2_ws/src/week07_08_my_package/week07_08_my_package/my_node.py
+          . /opt/ros/humble/setup.bash
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📂 SAMM 1: Kontrollin workspace struktuuri"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          ERRORS=0
+          SUCCESS=0
+          
+          # Kontrolli workspace juurkausta
+          if [ -d "ros2_ws" ]; then
+            echo "✅ Workspace 'ros2_ws' olemas"
+            ((SUCCESS++))
+          else
+            echo "❌ VIGA: Workspace 'ros2_ws' puudub"
+            echo "   💡 Loo see: mkdir -p ros2_ws/src"
+            ((ERRORS++))
+          fi
+          
+          # Kontrolli src kausta
+          if [ -d "ros2_ws/src" ]; then
+            echo "✅ Source kaust 'ros2_ws/src' olemas"
+            ((SUCCESS++))
+          else
+            echo "❌ VIGA: Source kaust puudub"
+            echo "   💡 Loo see: mkdir -p ros2_ws/src"
+            ((ERRORS++))
+          fi
+          
+          echo ""
+          echo "STRUCTURE_ERRORS=$ERRORS" >> $GITHUB_ENV
+          echo "STRUCTURE_SUCCESS=$SUCCESS" >> $GITHUB_ENV
+          
+          if [ $ERRORS -gt 0 ]; then
+            exit 1
+          fi
 
-      - name: Check package.xml has no TODO in key fields
+      - name: 📦 Validate Package
+        id: package_check
+        if: success() || failure()
         run: |
-          ! grep -n "TODO" ros2_ws/src/week07_08_my_package/package.xml | grep -E "description|maintainer|license"
+          . /opt/ros/humble/setup.bash
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📦 SAMM 2: Kontrollin paketi olemasolu ja struktuuri"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          ERRORS=0
+          SUCCESS=0
+          WARNINGS=0
+          
+          PKG_NAME="week07_08_my_package"
+          PKG_PATH="ros2_ws/src/$PKG_NAME"
+          
+          # Kontrolli paketi kausta
+          if [ -d "$PKG_PATH" ]; then
+            echo "✅ Pakett '$PKG_NAME' olemas"
+            ((SUCCESS++))
+          else
+            echo "❌ VIGA: Pakett '$PKG_NAME' puudub"
+            echo "   📍 Oodatud asukoht: $PKG_PATH"
+            echo "   💡 Loo see: cd ros2_ws/src && ros2 pkg create --build-type ament_python --license Apache-2.0 --node-name my_node $PKG_NAME"
+            ((ERRORS++))
+            echo "PACKAGE_ERRORS=$ERRORS" >> $GITHUB_ENV
+            exit 1
+          fi
+          
+          # Kontrolli package.xml
+          if [ -f "$PKG_PATH/package.xml" ]; then
+            echo "✅ Fail 'package.xml' olemas"
+            ((SUCCESS++))
+          else
+            echo "❌ VIGA: 'package.xml' puudub"
+            ((ERRORS++))
+          fi
+          
+          # Kontrolli setup.py
+          if [ -f "$PKG_PATH/setup.py" ]; then
+            echo "✅ Fail 'setup.py' olemas"
+            ((SUCCESS++))
+          else
+            echo "❌ VIGA: 'setup.py' puudub"
+            ((ERRORS++))
+          fi
+          
+          # Kontrolli paketi kausta struktuuri
+          if [ -d "$PKG_PATH/$PKG_NAME" ]; then
+            echo "✅ Python paketi kaust olemas: $PKG_NAME/$PKG_NAME"
+            ((SUCCESS++))
+          else
+            echo "❌ VIGA: Python paketi kaust puudub"
+            ((ERRORS++))
+          fi
+          
+          echo ""
+          echo "PACKAGE_ERRORS=$ERRORS" >> $GITHUB_ENV
+          echo "PACKAGE_SUCCESS=$SUCCESS" >> $GITHUB_ENV
+          
+          if [ $ERRORS -gt 0 ]; then
+            exit 1
+          fi
 
-      - name: Check setup.py has no TODO in key fields
+      - name: 📝 Validate Package Metadata
+        id: metadata_check
+        if: success() || failure()
         run: |
-          ! grep -n "TODO" ros2_ws/src/week07_08_my_package/setup.py | grep -E "maintainer|maintainer_email|description|license"
+          . /opt/ros/humble/setup.bash
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📝 SAMM 3: Kontrollin metaandmeid (package.xml ja setup.py)"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          ERRORS=0
+          SUCCESS=0
+          WARNINGS=0
+          
+          PKG_NAME="week07_08_my_package"
+          PKG_PATH="ros2_ws/src/$PKG_NAME"
+          
+          # ============================================
+          # PACKAGE.XML KONTROLL
+          # ============================================
+          
+          echo "📋 Kontrollin package.xml..."
+          echo ""
+          
+          if [ ! -f "$PKG_PATH/package.xml" ]; then
+            echo "❌ VIGA: package.xml puudub - ei saa metaandmeid kontrollida"
+            ((ERRORS++))
+          else
+            # Kontrolli description
+            if grep -q "<description>.*TODO.*</description>" "$PKG_PATH/package.xml" || \
+               grep -q "<description></description>" "$PKG_PATH/package.xml"; then
+              echo "❌ VIGA: package.xml description on täitmata või sisaldab 'TODO'"
+              echo "   💡 Muuda: <description>Minu ROS2 pakett nädalaks 7-8</description>"
+              ((ERRORS++))
+            else
+              DESC=$(grep -oP '(?<=<description>).*?(?=</description>)' "$PKG_PATH/package.xml" | head -n1)
+              if [ -n "$DESC" ] && [ "$DESC" != " " ]; then
+                echo "✅ Description täidetud: '$DESC'"
+                ((SUCCESS++))
+              else
+                echo "❌ VIGA: Description on tühi"
+                ((ERRORS++))
+              fi
+            fi
+            
+            # Kontrolli maintainer
+            if grep -q 'maintainer email=".*TODO.*"' "$PKG_PATH/package.xml" || \
+               grep -q 'maintainer email="">.*</maintainer>' "$PKG_PATH/package.xml"; then
+              echo "❌ VIGA: package.xml maintainer_email on täitmata või sisaldab 'TODO'"
+              echo "   💡 Muuda: <maintainer email=\"sinu.nimi@email.com\">Sinu Nimi</maintainer>"
+              ((ERRORS++))
+            else
+              MAINT=$(grep -oP '(?<=<maintainer email=").*?(?=">)' "$PKG_PATH/package.xml" | head -n1)
+              if [ -n "$MAINT" ] && [ "$MAINT" != " " ] && [[ "$MAINT" == *"@"* ]]; then
+                echo "✅ Maintainer email täidetud: '$MAINT'"
+                ((SUCCESS++))
+              else
+                echo "❌ VIGA: Maintainer email on vale formaadis või tühi"
+                echo "   💡 Peab sisaldama @-märki"
+                ((ERRORS++))
+              fi
+            fi
+            
+            # Kontrolli maintainer nime
+            MAINT_NAME=$(grep -oP '(?<=>).*?(?=</maintainer>)' "$PKG_PATH/package.xml" | head -n1)
+            if [ -n "$MAINT_NAME" ] && [ "$MAINT_NAME" != " " ] && [ "$MAINT_NAME" != "TODO" ]; then
+              echo "✅ Maintainer nimi täidetud: '$MAINT_NAME'"
+              ((SUCCESS++))
+            else
+              echo "❌ VIGA: Maintainer nimi on täitmata või 'TODO'"
+              ((ERRORS++))
+            fi
+            
+            # Kontrolli license
+            if grep -q "<license>Apache-2.0</license>" "$PKG_PATH/package.xml"; then
+              echo "✅ License on korrektne: Apache-2.0"
+              ((SUCCESS++))
+            else
+              echo "⚠️ HOIATUS: License ei ole Apache-2.0 (soovitatud)"
+              ((WARNINGS++))
+            fi
+          fi
+          
+          echo ""
+          
+          # ============================================
+          # SETUP.PY KONTROLL
+          # ============================================
+          
+          echo "📋 Kontrollin setup.py..."
+          echo ""
+          
+          if [ ! -f "$PKG_PATH/setup.py" ]; then
+            echo "❌ VIGA: setup.py puudub - ei saa metaandmeid kontrollida"
+            ((ERRORS++))
+          else
+            # Kontrolli description
+            if grep -q "description='TODO:" "$PKG_PATH/setup.py" || \
+               grep -q "description=''" "$PKG_PATH/setup.py"; then
+              echo "❌ VIGA: setup.py description on täitmata või sisaldab 'TODO'"
+              echo "   💡 Muuda: description='Minu ROS2 pakett nädalaks 7-8',"
+              ((ERRORS++))
+            else
+              DESC=$(grep -oP "description='\K[^']+" "$PKG_PATH/setup.py" | head -n1)
+              if [ -n "$DESC" ] && [ "$DESC" != " " ]; then
+                echo "✅ Description täidetud: '$DESC'"
+                ((SUCCESS++))
+              else
+                echo "❌ VIGA: Description on tühi"
+                ((ERRORS++))
+              fi
+            fi
+            
+            # Kontrolli maintainer
+            if grep -q "maintainer='TODO" "$PKG_PATH/setup.py" || \
+               grep -q "maintainer=''" "$PKG_PATH/setup.py"; then
+              echo "❌ VIGA: setup.py maintainer on täitmata"
+              ((ERRORS++))
+            else
+              MAINT=$(grep -oP "maintainer='\K[^']+" "$PKG_PATH/setup.py" | head -n1)
+              if [ -n "$MAINT" ] && [ "$MAINT" != " " ]; then
+                echo "✅ Maintainer täidetud: '$MAINT'"
+                ((SUCCESS++))
+              else
+                echo "❌ VIGA: Maintainer on tühi"
+                ((ERRORS++))
+              fi
+            fi
+            
+            # Kontrolli maintainer_email
+            if grep -q "maintainer_email='TODO" "$PKG_PATH/setup.py" || \
+               grep -q "maintainer_email=''" "$PKG_PATH/setup.py"; then
+              echo "❌ VIGA: setup.py maintainer_email on täitmata"
+              ((ERRORS++))
+            else
+              EMAIL=$(grep -oP "maintainer_email='\K[^']+" "$PKG_PATH/setup.py" | head -n1)
+              if [ -n "$EMAIL" ] && [ "$EMAIL" != " " ] && [[ "$EMAIL" == *"@"* ]]; then
+                echo "✅ Maintainer email täidetud: '$EMAIL'"
+                ((SUCCESS++))
+              else
+                echo "❌ VIGA: Maintainer email on vale formaadis"
+                ((ERRORS++))
+              fi
+            fi
+            
+            # Kontrolli license
+            if grep -q "license='Apache-2.0'" "$PKG_PATH/setup.py"; then
+              echo "✅ License on korrektne: Apache-2.0"
+              ((SUCCESS++))
+            else
+              echo "⚠️ HOIATUS: License ei ole Apache-2.0 (soovitatud)"
+              ((WARNINGS++))
+            fi
+          fi
+          
+          echo ""
+          echo "METADATA_ERRORS=$ERRORS" >> $GITHUB_ENV
+          echo "METADATA_SUCCESS=$SUCCESS" >> $GITHUB_ENV
+          echo "METADATA_WARNINGS=$WARNINGS" >> $GITHUB_ENV
+          
+          if [ $ERRORS -gt 0 ]; then
+            exit 1
+          fi
+
+      - name: 🔨 Build Workspace
+        id: build_check
+        if: success() || failure()
+        run: |
+          . /opt/ros/humble/setup.bash
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🔨 SAMM 4: Kompileerin workspace'i"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          cd ros2_ws
+          
+          echo "📋 Käivitan: colcon build --packages-select week07_08_my_package"
+          echo ""
+          
+          # Proovi kompileerida
+          if colcon build --packages-select week07_08_my_package 2>&1 | tee build.log; then
+            echo ""
+            echo "✅ Build õnnestus!"
+            echo "BUILD_SUCCESS=true" >> $GITHUB_ENV
+            
+            # Kontrolli kas install kaust tekkis
+            if [ -d "install" ]; then
+              echo "✅ Install kaust loodud"
+            fi
+            
+          else
+            echo ""
+            echo "❌ Build ebaõnnestus!"
+            echo ""
+            echo "📋 VIIMASED VEAREAD:"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            tail -n 30 build.log
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "💡 SOOVITUSED:"
+            echo "   1. Kontrolli package.xml ja setup.py süntaksit"
+            echo "   2. Veendu, et kõik nõutud failid on olemas"
+            echo "   3. Vaata täielik build log ülalpool"
+            echo ""
+            echo "BUILD_SUCCESS=false" >> $GITHUB_ENV
+            exit 1
+          fi
+
+      - name: 🚀 Test Node Execution
+        id: node_check
+        if: env.BUILD_SUCCESS == 'true'
+        run: |
+          . /opt/ros/humble/setup.bash
+          cd ros2_ws
+          . install/setup.bash
+          
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "🚀 SAMM 5: Testin node'i käivitamist"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          PKG_NAME="week07_08_my_package"
+          NODE_NAME="my_node"
+          
+          echo "📋 Käivitan: ros2 run $PKG_NAME $NODE_NAME"
+          echo "   (Annan node'ile 3 sekundit käivitamiseks)"
+          echo ""
+          
+          # Käivita node taustal ja salvesta väljund
+          timeout 3s ros2 run $PKG_NAME $NODE_NAME > node_output.txt 2>&1 &
+          NODE_PID=$!
+          
+          sleep 1
+          
+          # Kontrolli kas node käivitus
+          if ps -p $NODE_PID > /dev/null 2>&1; then
+            echo "✅ Node käivitus edukalt!"
+            
+            # Oota veidi, et node saaks midagi väljastada
+            sleep 1
+            
+            # Lõpeta node
+            kill $NODE_PID 2>/dev/null || true
+            wait $NODE_PID 2>/dev/null || true
+            
+            # Kontrolli väljundit
+            if [ -f "node_output.txt" ] && [ -s "node_output.txt" ]; then
+              echo ""
+              echo "📋 Node'i väljund:"
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              cat node_output.txt
+              echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+              
+              # Kontrolli kas sisaldab oodatud teksti
+              if grep -qi "Hi from" node_output.txt; then
+                echo "✅ Node väljund sisaldab oodatud teksti 'Hi from...'"
+              else
+                echo "⚠️ HOIATUS: Node'i väljund ei sisalda oodatud teksti 'Hi from...'"
+              fi
+            else
+              echo "⚠️ HOIATUS: Node ei tootnud väljundit (see on OK, kui node on vaikne)"
+            fi
+            
+            echo "NODE_SUCCESS=true" >> $GITHUB_ENV
+          else
+            echo "❌ Node ei käivitunud korralikult"
+            echo ""
+            if [ -f "node_output.txt" ]; then
+              echo "📋 Vea väljund:"
+              cat node_output.txt
+            fi
+            echo ""
+            echo "💡 SOOVITUSED:"
+            echo "   1. Kontrolli, kas my_node on setup.py entry_points'is määratud"
+            echo "   2. Veendu, et node fail eksisteerib kaustas $PKG_NAME/"
+            echo "   3. Proovi käivitada lokaalselt: ros2 run $PKG_NAME $NODE_NAME"
+            echo ""
+            echo "NODE_SUCCESS=false" >> $GITHUB_ENV
+            exit 1
+          fi
+
+      - name: 📊 Generate Final Report
+        if: always()
+        run: |
+          echo ""
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo "📊 LÕPLIK KOKKUVÕTE - Week 07-08"
+          echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+          echo ""
+          
+          # Structure
+          STRUCT_SUCCESS=${STRUCTURE_SUCCESS:-0}
+          STRUCT_ERRORS=${STRUCTURE_ERRORS:-0}
+          if [ "$STRUCT_ERRORS" -eq 0 ] && [ "$STRUCT_SUCCESS" -gt 0 ]; then
+            echo "✅ Workspace struktuur: OK ($STRUCT_SUCCESS kontrolli)"
+          else
+            echo "❌ Workspace struktuur: VIGA ($STRUCT_ERRORS viga)"
+          fi
+          
+          # Package
+          PKG_SUCCESS=${PACKAGE_SUCCESS:-0}
+          PKG_ERRORS=${PACKAGE_ERRORS:-0}
+          if [ "$PKG_ERRORS" -eq 0 ] && [ "$PKG_SUCCESS" -gt 0 ]; then
+            echo "✅ Paketi struktuur: OK ($PKG_SUCCESS kontrolli)"
+          else
+            echo "❌ Paketi struktuur: VIGA ($PKG_ERRORS viga)"
+          fi
+          
+          # Metadata
+          META_SUCCESS=${METADATA_SUCCESS:-0}
+          META_ERRORS=${METADATA_ERRORS:-0}
+          META_WARNINGS=${METADATA_WARNINGS:-0}
+          if [ "$META_ERRORS" -eq 0 ] && [ "$META_SUCCESS" -gt 0 ]; then
+            echo "✅ Metaandmed: OK ($META_SUCCESS kontrolli, $META_WARNINGS hoiatust)"
+          else
+            echo "❌ Metaandmed: VIGA ($META_ERRORS viga)"
+          fi
+          
+          # Build
+          if [ "${BUILD_SUCCESS:-false}" == "true" ]; then
+            echo "✅ Kompileerimine: OK"
+          else
+            echo "❌ Kompileerimine: EBAÕNNESTUS"
+          fi
+          
+          # Node
+          if [ "${NODE_SUCCESS:-false}" == "true" ]; then
+            echo "✅ Node käivitamine: OK"
+          else
+            echo "❌ Node käivitamine: EBAÕNNESTUS"
+          fi
+          
+          echo ""
+          
+          # Overall result
+          TOTAL_ERRORS=$((STRUCT_ERRORS + PKG_ERRORS + META_ERRORS))
+          
+          if [ "$TOTAL_ERRORS" -eq 0 ] && \
+             [ "${BUILD_SUCCESS:-false}" == "true" ] && \
+             [ "${NODE_SUCCESS:-false}" == "true" ]; then
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "🎉 PALJU ÕNNE! Kõik testid läbitud!"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "✓ Workspace struktuur on korrektne"
+            echo "✓ Pakett on loodud ja metaandmed täidetud"
+            echo "✓ Kood kompileerub"
+            echo "✓ Node käivitub korralikult"
+            echo ""
+            echo "📚 Järgmine samm: Liigu edasi Week 09-10 (Publisher/Subscriber)"
+            echo ""
+          else
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo "❌ ÜLESANNE VAJAB PARANDAMIST"
+            echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+            echo ""
+            echo "📋 Vaata ülalpool samme ja paranda punasega (❌) märgitud vead"
+            echo ""
+          fi
+
+      - name: 📝 Create GitHub Summary
+        if: always()
+        run: |
+          cat >> $GITHUB_STEP_SUMMARY << 'EOF'
+          ## 📊 Week 07-08: ROS2 Workspace - Tulemused
+          
+          ### Kontrollide ülevaade:
+          
+          | Samm | Kirjeldus | Tulemus |
+          |------|-----------|---------|
+          | 📂 Struktuur | ros2_ws ja src kaustad | ${{ env.STRUCTURE_ERRORS == '0' && '✅ OK' || '❌ Viga' }} |
+          | 📦 Pakett | week07_08_my_package loomine | ${{ env.PACKAGE_ERRORS == '0' && '✅ OK' || '❌ Viga' }} |
+          | 📝 Metaandmed | package.xml ja setup.py | ${{ env.METADATA_ERRORS == '0' && '✅ OK' || '❌ Viga' }} |
+          | 🔨 Build | colcon build | ${{ env.BUILD_SUCCESS == 'true' && '✅ OK' || '❌ Ebaõnnestus' }} |
+          | 🚀 Node | my_node käivitamine | ${{ env.NODE_SUCCESS == 'true' && '✅ OK' || '❌ Ebaõnnestus' }} |
+          
+          ---
+          
+          ### 📋 Nõuded ülesandes:
+          
+          **Ülesanne A:** Loo pakett
+          - ✅ `ros2 pkg create --build-type ament_python`
+          - ✅ Paketi nimi: `week07_08_my_package`
+          - ✅ Node nimi: `my_node`
+          
+          **Ülesanne B:** Metaandmed
+          - ✅ `package.xml`: description, maintainer, email
+          - ✅ `setup.py`: samad väljad täidetud
+          - ✅ License: Apache-2.0
+          
+          **Ülesanne C:** Build ja käivita
+          - ✅ `colcon build` õnnestub
+          - ✅ Node käivitub: `ros2 run week07_08_my_package my_node`
+          
+          ---
+          
+          ### 🔧 Kui test ebaõnnestus:
+          
+          1. **Vaata detailset väljundit** ülalpool (iga sammu logi)
+          2. **Leia konkreetne viga** - iga samm näitab täpselt, mis valesti
+          3. **Paranda lokaalses repos:**
+             ```bash
+             # Kontrolli struktuuri
+             ls -la ros2_ws/src/week07_08_my_package/
+             
+             # Proovi buildi
+             cd ros2_ws
+             colcon build --packages-select week07_08_my_package
+             
+             # Testi node'i
+             . install/setup.bash
+             ros2 run week07_08_my_package my_node
+             ```
+          4. **Push uuesti:**
+             ```bash
+             git add .
+             git commit -m "fix: parandused week 07-08 ülesandes"
+             git push
+             ```
+          
+          ---
+          
+          ### 💡 Levinud vead:
+          
+          - ❌ **"package.xml puudub"** → Paketi nimi on vale või kaust puudub
+          - ❌ **"Build ebaõnnestus"** → Kontrolli package.xml ja setup.py süntaksit
+          - ❌ **"Node ei käivitu"** → Kontrolli entry_points'i setup.py's
+          - ❌ **"Metaandmed TODO"** → Täida kõik description/maintainer väljad
+          
+          ---
+          
+          ### 📚 Abimaterjalid:
+          
+          - [Week 07-08 README](https://github.com/Tallinna-Tehnika-korgkool/TRO029---ROS2-sissejuhatus)
+          - [ROS2 Package Creation](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Creating-Your-First-ROS2-Package.html)
+          - [Colcon Build](https://docs.ros.org/en/humble/Tutorials/Beginner-Client-Libraries/Colcon-Tutorial.html)
+          
+          EOF
