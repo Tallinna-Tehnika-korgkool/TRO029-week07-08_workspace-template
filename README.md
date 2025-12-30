@@ -67,3 +67,94 @@ Pärast seda peab sul tekkima kaust:
 
 *   **IDX-is:** `/workspace/ros2_ws/src/week07_08_my_package`
 *   **Docker Desktopis:** `~/ros2_ws/src/week07_08_my_package`
+
+---
+## Ülesanne B: muuda metaandmeid (kohustuslik)
+
+`package.xml` ja `setup.py` on ROS 2 paketi jaoks üliolulised failid, mis sisaldavad selle metaandmeid. Testimissüsteem kontrollib, et sa oled need korrektselt täitnud.
+
+1)  Ava `package.xml` (`.../week07_08_my_package/package.xml`)
+2)  Täida väljad `description`, `maintainer` (nimi) ja `maintainer_email`.
+
+    ```xml
+    <!-- Näide -->
+    <description>My awesome ROS 2 package for week 7-8.</description>
+    <maintainer email="sinu.nimi@email.com">Sinu Nimi</maintainer>
+    <license>Apache-2.0</license>
+    ```
+
+3)  Ava `setup.py` (`.../week07_08_my_package/setup.py`)
+4)  Täida samad väljad ka siin.
+
+    ```python
+    # Näide
+    setup(
+        # ...
+        maintainer='Sinu Nimi',
+        maintainer_email='sinu.nimi@email.com',
+        description='My awesome ROS 2 package for week 7-8.',
+        license='Apache-2.0',
+        # ...
+    )
+    ```
+
+---
+## Ülesanne C: ehita ja käivita (kohustuslik)
+
+1)  Mine oma workspace’i **juurkausta** (NB! Mitte `src` kausta).
+    *   **IDX-is:** `cd /workspace/ros2_ws`
+    *   **Docker Desktopis:** `cd ~/ros2_ws`
+
+2)  Ehita (`build`) oma uus pakett `colcon` abil. See kompileerib koodi ja teeb selle ROS-ile kättesaadavaks.
+
+    ```bash
+    colcon build --packages-select week07_08_my_package
+    ```
+    Kui ehitamine õnnestub, näed teadet `Finished <<< week07_08_my_package`.
+
+3)  Aktiveeri (`source`) oma workspace. See on **ÄÄRMISELT OLULINE** samm, mis tuleb teha **IGAS UUES TERMINALIS**, kus sa tahad oma koodi käivitada. Ilma selleta ei leia ROS sinu paketti.
+
+    ```bash
+    source install/setup.bash
+    ```
+    *Vihje: selle käsu saab lisada oma terminali seadistusfaili (`~/.bashrc`), et see automaatselt käivituks.*
+
+4)  Käivita (`run`) oma node.
+
+    ```bash
+    ros2 run week07_08_my_package my_node
+    ```
+
+    Kui kõik on õigesti tehtud, peaks terminali ilmuma teade:
+    `Hi from week07_08_my_package.`
+
+---
+
+## Esitamise kord
+
+Harjutuse edukaks esitamiseks **pead töötama oma isiklikus GitHub Classroomi repos**, mis on loodud selle nädala jaoks.
+
+1.  **Ava ülesande link Moodle'ist:**
+    - Mine kursuse Moodle'i lehele.
+    - Leia sealt selle nädala (Week 07-08) ülesande juurest link oma isikliku GitHub Classroomi repositooriumi loomiseks.
+
+2.  **Klooni enda isiklik repo GitHubist**, mille nimi sisaldab sinu GitHubi kasutajanime.
+    Näide:
+    ```bash
+    git clone https://github.com/Tallinna-Tehnika-korgkool/TRO029-week07-08_workspace-<sinu_kasutajanimi>
+    ```
+
+3.  **Tee kõik ülesanded selles kloonitud repos.**
+
+4.  **Lisa ja `commit`'i oma muudatused** (`ros2_ws` kaust koos sinu paketiga).
+    ```bash
+    git add .
+    git commit -m "docs: Complete week 7-8 exercise"
+    git push
+    ```
+
+5.  Kui `push` on tehtud, käivituvad **automaatsed testid** (GitHub Actions) sinu repo **Actions** vahekaardil.
+    - ✅ **Roheline** ✔️ tähendab, et kõik on korras.
+    - ❌ **Punane** ✖️ tähendab, et midagi on puudu või valesti – paranda ja tee uus `commit` ja `push`.
+
+> **NB!** Kui töötad väljaspool oma isiklikku Classroom repo't, siis testid ei tööta ja harjutust ei loeta esitatuks.
